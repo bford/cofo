@@ -64,12 +64,12 @@ var testCases = []testCase{
 
 	// 16383-byte, largest canonical medium-size blob
 	bigTestCase(16383, -1, []byte{0x81,0x3f,0x7f}),
-
-	// 16384-byte, smallest non-canonical streamable blob
-	bigTestCase(16384, -1, []byte{0x81,0x3f,0x80}),
 }
 
 var largeCases = []testCase{
+
+	// 16384-byte, smallest non-canonical streamable blob
+	bigTestCase(16384, -1, []byte{0x81,0x3f,0x80}),
 
 	// 16511-byte, largest blob representable with 3-byte header
 	bigTestCase(16511, -1, []byte{0x81,0x3f,0xff}),
@@ -153,6 +153,28 @@ func TestDecode(t *testing.T) {
 	}
 	if len(buf) != 0 {
 		t.Error("failed to decode everything in concatenated decode")
+	}
+}
+
+func TestEncoder(t *testing.T) {
+	var buf bytes.Buffer
+	var ref []byte
+	enc := NewEncoder(&buf)
+
+	// Encode all our test cases consecutively with one Encoder
+	for i, st := range testCases {
+		if err := enc.Bytes(st.data); err != nil {
+			t.Error(err)
+		}
+		ref = append(ref, st.blob...)
+
+		if bytes.Compare(buf.Bytes(), ref) != 0 {
+			t.Errorf("incorrect encode in case %v len %v",
+				 i, len(st.data))
+		}
+	}
+	if bytes.Compare(buf.Bytes(), ref) != 0 {
+		t.Errorf("incorrect encode")
 	}
 }
 

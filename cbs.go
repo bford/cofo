@@ -48,7 +48,7 @@ func Encode(dst, src []byte) []byte {
 // On see a blob header for a large blob, this function returns an error.
 // To decode large blobs of 16KiB or more, use the streaming-capable Decoder.
 // 
-func Header(buf []byte) (contentOfs, contentLen int, err error) {
+func decodeHeader(buf []byte) (contentOfs, contentLen int, err error) {
 
 	// 1-byte headers
 	if len(buf) == 0 {
@@ -96,7 +96,7 @@ func Header(buf []byte) (contentOfs, contentLen int, err error) {
 // To decode large blobs of 16KiB or more, use the streaming-capable Decoder.
 // 
 func Decode(buf []byte) (content, remainder []byte, err error) {
-	ofs, n, err := Header(buf)
+	ofs, n, err := decodeHeader(buf)
 	if err != nil {
 		return nil, nil, err
 	}
