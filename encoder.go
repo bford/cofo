@@ -5,6 +5,8 @@ import (
 	"io"
 	"bytes"
 	"strings"
+	"encoding/binary"
+	"math/big"
 )
 
 
@@ -39,7 +41,7 @@ func (e *Encoder) ReadFrom(r io.Reader) (n int64, err error) {
 	buf := e.getBuf()
 	chunkLen := len(buf) - 4
 
-	tot := 0
+	tot := int64(0)
 	more := true
 	for more {
 		// Read a full chunk into the chunk buffer or until EOF
@@ -90,11 +92,10 @@ func (e *Encoder) ReadFrom(r io.Reader) (n int64, err error) {
 			return 0, errors.New("short write")
 		}
 
-		tot += l
+		tot += int64(l)
 	}
-	return int64(tot), nil
+	return tot, nil
 }
-
 
 // Encode a byte-slice as a blob.
 func (e *Encoder) Bytes(b []byte) error {
@@ -106,6 +107,47 @@ func (e *Encoder) Bytes(b []byte) error {
 func (e *Encoder) String(s string) error {
 	_, err := e.ReadFrom(strings.NewReader(s))
 	return err
+}
+
+// Encode a uint64 as a big-endian unsigned integer blob.
+func (e *Encoder) Uint64(v uint64) error {
+	var b8 [8]byte
+	b := b8[:]
+	binary.BigEndian.PutUint64(b, v)
+	for len(b) > 0 && b[0] == 0 {	// trim leading 0 bytes
+		b = b[1:]
+	}
+	return e.Bytes(b)
+}
+
+// Encode an int64 as a big-endian zigzag-encoded signed integer blob.
+func (e *Encoder) Int64(v int64) error {
+	var u uint64
+	if v >= 0 {
+		u = uint64(v) << 1
+	} else {
+		u = uint64(^v) << 1 + 1
+	}
+	return e.Uint64(u)
+}
+
+// Encode the absolute value of a big.Int
+// as a big-endian unsigned integer blob.
+func (e *Encoder) UnsignedInt(v *big.Int) error {
+	return e.Bytes(v.Bytes())
+}
+
+// Encode a big.Int as a big-endian zigzag-encoded signed integer blob.
+func (e *Encoder) SignedInt(v *big.Int) error {
+	u := &big.Int{}
+	if v.Sign() >= 0 {
+		u.Lsh(v, 1)
+	} else {
+		u.Sub(minusOne, v)
+		u.Lsh(u, 1)
+		u.SetBit(u, 0, 1)
+	}
+	return e.Bytes(u.Bytes())
 }
 
 
