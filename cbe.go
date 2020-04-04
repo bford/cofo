@@ -150,4 +150,3 @@ func Decode(buf []byte) (content, remainder []byte, err error) {
 
 var EOF = io.EOF
 
-var TooLong = errors.New("blob content too long")
