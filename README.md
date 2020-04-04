@@ -5,19 +5,19 @@ into a longer string or stream,
 so that a decoder can find the end of the embedded string unambiguously.
 *Composable binary encoding* or *CBE* is an encoding scheme
 designed to solve this (and only this) problem simply and efficiently.
+
 Given an arbitrary byte string of any length from zero to infinity (endless),
 CBE embeds it in a larger byte sequence such that:
 
+*	Both encoding and decoding is simple,
+	with only a few cases,
+	and even simpler when embedded strings are constrained to be short.
 *	Embedding is space-efficient for small embedded strings,
 	incurring:
 	*	0-byte overhead when the embedded string is
 		a 7-bit integer or single ASCII character.
 	*	1-byte overhead for embedded strings less than 64 bytes.
 	*	2-byte overhead for embedded strings less than 16448 bytes.
-*	Streaming encoders can delimit arbitrarily-long embedded strings
-	progressively in variable-size chunks between &sim;16KB and &sim;4MB.
-*	Relative space overhead diminishes rapidly for large strings,
-	to a limit of &sim;0.0001% when streaming with the maximum chunk size.
 *	Every byte of the embedded string appears verbatim and in-order
 	in the CBE-encoding, with no transformation or obfuscation
 	to interfere with manual inspection or search tools.
@@ -26,16 +26,17 @@ CBE embeds it in a larger byte sequence such that:
 	making CBE embedding automatically
 	[*canonical*](https://en.wikipedia.org/wiki/Canonicalization)
 	in this common case.
-*	Both encoding and decoding is extremely simple,
-	with only a few cases,
-	and even simpler when embedded strings are constrained to be short.
+*	Streaming encoders can delimit arbitrarily-long embedded strings
+	progressively in variable-size chunks between &sim;16KB and &sim;4MB.
+*	Relative space overhead diminishes rapidly for large strings,
+	to a limit of &sim;0.0001% when streaming with the maximum chunk size.
 
 A [prototype implementation in Go](https://github.com/bford/cbe-go)
 is already available,
 and porting CBE to other language should be straightforward.
 
 
-## Encoding binary blobs into one or more chunks
+## Encoding binary blobs into more chunks
 
 CBE takes an arbitrary byte sequence or *blob* of any length &ndash;
 even an endless stream &ndash;
@@ -63,7 +64,7 @@ until it produces the one *final* chunk.
 
 ### CBE chunk headers
 
-Each chunk comprising a CBE blob
+Each chunk consists of a CBE blob
 contains a *header* of 1&ndash;4 bytes
 and a *payload* of up to 4,210,751 bytes
 (2<sup>6</sup>+2<sup>14</sup>+2<sup>22</sup>-1).
@@ -220,8 +221,6 @@ etc.
 
 One cost of this chunk size flexibility in large blobs
 is that decoders must be prepared to decode and combine chunks of varying size.
-A particular context or data format using CBE
-can impose restrictions on the range 
 If CBE's range of chunk sizes is too broad
 for a particular format or protocol using CBE,
 that protocol can further constrain the range of allowed chunk sizes
@@ -411,4 +410,11 @@ to bind together all the pairs comprising a particular map structure
 and embed it in other structures,
 including other maps.
 
+
+# Feedback and suggestions
+
+This specification is a preliminary draft and not yet stable:
+I make no promises (yet) not to make incompatible changes at any time.
+For comments and suggestions on improving this spec,
+please feel free to submit pull requests on this repository.
 
