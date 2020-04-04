@@ -1,24 +1,10 @@
----
-draft: true
-title: Efficient Stream Embedding with Composable Binary Encoding (CBE)
-url: /draft/cbe/
----
+# Composable Binary Encoding (CBE)
 
-An old problem in data format design is
-embedding an arbitrary variable-length byte sequence in a longer one,
-so that a decoder can tell unambiguously where the embedded string ends.
-This problem is ubiquitous in the design of machine-readable data formats,
-which often hierarchically compose large and complex data streams
-from sequences of nested substrings and strings using simpler encodings.
-Embedding challenges include encoding and decoding simplicity,
-keeping space overheads low and predictable
-for both small and large embedded strings,
-and allowing for stream processing in which an encoder
-must start writing an embedded sequence before knowing how long it will be.
-
-This post proposes a scheme I'll call *composable binary encoding* or *CBE*,
-which represents a point in this vast design space
-with a particularly attractive combination of properties.
+We often want to embed a veriable-length binary string
+into a longer string or stream,
+so that a decoder can find the end of the embedded string unambiguously.
+*Composable binary encoding* or *CBE* is an encoding scheme
+designed to solve this (and only this) problem simply and efficiently.
 Given an arbitrary byte string of any length from zero to infinity (endless),
 CBE embeds it in a larger byte sequence such that:
 
@@ -44,102 +30,14 @@ CBE embeds it in a larger byte sequence such that:
 	with only a few cases,
 	and even simpler when embedded strings are constrained to be short.
 
-A [prototype implementation in Go](...) is already available,
-and porting CBE to other language should be easy.
+A [prototype implementation in Go](https://github.com/bford/cbe-go)
+is already available,
+and porting CBE to other language should be straightforward.
 
 
-## The binary sequence embedding challenge
+## Encoding binary blobs into one or more chunks
 
-We often wish to encode data in a *composable* hierarchical structure,
-so that we can build larger, more complex encoded structures
-out of sequences and trees comprised of smaller, simpler ones.
-Countless application-specific formats achieve this goal in countless ways
-adapted to the particular types of data being encoded:
-strings, integers, real numbers, dates, pixels, etc.
-
-Because of vast body of relevant data types
-and the complexity managing them and tracking their evolution,
-it is often simplest to compose or embed data
-in a "typeless" or at least type-agnostic fashion.
-Since essentially any data type may be serialized into a byte string,
-embedding allows container formats to treat embedded data
-as opaque byte sequences,
-readily allowing the embedding of data in a format or version
-that may be unknown to the container format,
-or even of encrypted data that is
-[indistinguishable from random bits](https://en.wikipedia.org/wiki/PURB_(cryptography))
-without the proper key.
-
-The main technical challenge in byte string embedding
-is enabling the decoder to *find the end* of the embedded sequence
-without constraining either its length or its content.
-
-If we just pick a distinguished
-[delimiter](https://en.wikipedia.org/wiki/Delimiter)
-byte value to terminate the embedded sequence, for example,
-the decoder will get confused if the embedded string
-contains the delimiter value.
-We can replace delimiter bytes in the embedded string with
-[*escape sequences*](https://en.wikipedia.org/wiki/Escape_sequence),
-but doing so expands the embedded string in a heavily data-dependent way,
-potentially doubling its size or worse if it contains many delimiters.
-Delimeter-removal codes such as
-[consistent overhead byte stuffing](https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing)
-or
-[escapeless](https://github.com/kosarev/escapeless)
-can make a string "delimiter-safe" with more predictable overhead,
-at the cost of nontrivial transformations to the embedded string.
-And even modest escaping or delimiter-removal overheads
-can grow rapidly with multiple levels of nested embedding.
-
-The standard alternative is
-to encode the length of the embedded string
-prior to the embedded data itself,
-as in common
-[type-length-value](https://en.wikipedia.org/wiki/Type-length-value)
-encodings.
-While eliminating the need for delimiters or escaping
-and incurring little space overhead on long embedded sequences,
-this approach presents four further challenges:
-(1) one must now decide how long the *length* field will be;
-(2) a fixed-size length field
-limits the potential size of the embedded sequence;
-(3) the length field incurs proportionally larger space overheads
-on the often-common case of *short* embedded byte sequences; and
-(4) the encoder must know in advance how long the embedded sequence is
-before starting to copy it to the output data stream.
-The last issue is a problem for
-[stream-based operation](https://en.wikipedia.org/wiki/Stream_(computing))
-in which encoders must produce the beginning of a long output stream
-concurrently with the reading of input stream(s) the output is derived from,
-each of which may be larger in total than the processor's working memory
-or even infinite (endless) in principle.
-
-We can in turn make the length field variable-size, of course.
-Using a base-7
-[variable-length encoding](https://en.wikipedia.org/wiki/Variable-length_quantity)
-such as
-[LEB128](https://en.wikipedia.org/wiki/LEB128)
-or
-[varint](https://developers.google.com/protocol-buffers/docs/encoding),
-for example,
-each encoded byte contains only seven bits of a variable-length integer,
-with the eighth bit indicating whether there are more bytes.
-Base-7 encoding offers attractive space-efficiency
-in the common case of small integers
-without limiting their maximum size in principle,
-but incurs a nontrivial 14% constant overhead when encoding larger values
-such as cryptographic numbers with hundreds or thousands of bits,
-and does not address the streaming problem.
-
-
-## Composable binary encoding (CBE)
-
-While any embedding scheme will embody tradeoffs,
-we now explore *composable binary encoding* or *CBE*,
-an embedding scheme designed to balance simplicity, power, and efficiency.
-
-CBE simply takes an arbitrary byte sequence or *blob* of any length &ndash;
+CBE takes an arbitrary byte sequence or *blob* of any length &ndash;
 even an endless stream &ndash;
 and encodes it so that when embedded in another "container" byte stream,
 a decoder can unambiguously find the blob's end (if it has one).
@@ -163,7 +61,7 @@ This way, an encoder can produce *partial* chunks of large blobs progressively
 without knowing how many more chunks there will be
 until it produces the one *final* chunk.
 
-### Chunk headers
+### CBE chunk headers
 
 Each chunk comprising a CBE blob
 contains a *header* of 1&ndash;4 bytes
@@ -356,7 +254,7 @@ for the bulk data exchange and processing
 that large blobs are intended to support.
 
 
-## Blob-encoding common data types
+## Suggested blob encodings for common data types
 
 CBE does not know or care what you put in a blob;
 that is the point of the type-agnostic byte-string approach.
@@ -366,8 +264,6 @@ such as integers, strings, or key/value pairs.
 This section discusses some practices and suggestions
 for such common-case uses of blobs,
 without in any way intending to restrictive or prescriptive.
-If this blog post constituted a standard,
-then this section would be non-normative.
 
 
 ### Integer blobs
@@ -436,39 +332,6 @@ ZigZag encoding is well-suited to CBE
 because it encodes both small positive and small negative numbers
 in the range -64 and +63 as 7-bit unsigned integers from 0 to 127,
 which CBE in turn encodes in a single byte with no header overhead.
-
-
-#### CBE versus base-7 varint encoding
-
-CBE-encoded integers share the same basic advantages of base-7 varints,
-namely efficient encoding of small integers
-while supporting arbitrarily-large integers in principle,
-with gradually-increasing encoding overhead.
-CBE-encoding yields exactly the same encoding space-efficiency
-for many small-integer sizes
-such as unsigned integers from 0&ndash;8 bits,
-15&ndash;16 bits,
-29&ndash;32 bits, etc.
-Varint encoding is one byte smaller for some other small-integer sizes,
-such as 9&ndash;14 bits and 17&ndash;28 bits.
-
-Starting at 50 bits wide, however,
-CBE encoding is always at least as space-efficient as base-7 encoding,
-because base-7 incurs a constant &sim;14% overhead on all integer widths,
-whereas CBE's relative overhead rapidly diminishes for larger integers.
-Encoding a 256-bit cryptographic integer, for example,
-requires 37 bytes as a varint but only 33 bytes in CBE (&sim;3% overhead),
-while a 4096-bit RSA integer
-takes 585 bytes as a varint but only 514 bytes in CBE (&sim;0.4% overhead).
-
-CBE encoding of integers also has the advantage of 
-not requiring odd shifts within bytes on encoding and decoding,
-and is less obfuscated against manual inspection.
-The varint encoding of an integer like the  0xDEADBEEF4BADF00D example above
-would not be particularly recognizable in a hex dump, for example.
-
-Finally, while varint encoding is specialized to integers,
-CBE encoding is more general and readily-applicable to many other data types.
 
 
 ### String blobs
@@ -548,23 +411,4 @@ to bind together all the pairs comprising a particular map structure
 and embed it in other structures,
 including other maps.
 
-
-## Conclusion
-
-CBE is a simple but power binary data-encoding primitive
-designed to do only one thing well:
-efficiently encode the size (or end) of an embedded byte sequence.
-In doing so,
-it optimizes for both space efficiency and encode/decode simplicity
-for common cases of short embedded sequences
-sequences of one byte, <128 bytes, or <&sim;16K bytes.
-It allows sequences to be arbitrarily large or infinite in principle, however,
-and optimizes large sequences for both space efficiency
-and encoding flexibility,
-allowing encoders to stream large sequences in chunks of
-&sim;16K&ndash;&sim;4MB.
-While not directly knowing or caring about data types,
-it is usable as an efficient primitive in encoding
-rich typed and hierarchically-structured data.
-I hope you will find it useful.
 
