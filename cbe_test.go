@@ -63,19 +63,22 @@ var testCases = []testCase{
 
 	// 16447-byte, largest canonical medium-size blob (#24)
 	bigTestCase(16447, -1, []byte{0xff, 0xff}),
+
+	// 16448-byte, smallest large blob with 4-byte header (#25)
+	bigTestCase(16448, -1, []byte{0x81, 0x00, 0x00, 0x00}),
+
+	// 32768-byte (#26)
+	bigTestCase(32768, -1, []byte{0x81, 0x00, 0x3f, 0xc0}),
+
+	// 4210750-byte (#27)
+	bigTestCase(4210750, -1, []byte{0x81, 0x3f, 0xff, 0xfe}),
+
+	// 4210751-byte (#27)
+	//bigTestCase(4210751, -1, []byte{0x81,0x3f,0xff, 0xff}),
+	// XXX Encoder breaks it into 2 chunks; need to account for that...
 }
 
-var largeCases = []testCase{
-
-	// 16384-byte, smallest non-canonical streamable blob
-	bigTestCase(16384, -1, []byte{0x81, 0x3f, 0x80}),
-
-	// 16511-byte, largest blob representable with 3-byte header
-	bigTestCase(16511, -1, []byte{0x81, 0x3f, 0xff}),
-
-	// 16512-byte, smallest blob requiring 4-byte header
-	bigTestCase(16512, -1, []byte{0x81, 0x40, 0x40, 0x00}),
-}
+// XXX tests could be better: e.g., need error cases too...
 
 func bigTestCase(n, v int, hdr []byte) testCase {
 	h := len(hdr)
@@ -103,14 +106,14 @@ func TestEncode(t *testing.T) {
 		// Test encoding into a fresh buffer
 		blob := Encode(nil, st.data)
 		if bytes.Compare(blob, st.blob) != 0 {
-			t.Errorf("incorrect encode in small test %v", i)
+			t.Errorf("incorrect encode in test %v", i)
 		}
 
 		// Test encoding cumulatively
 		accx = Encode(accx, st.data)
 		accy = append(accy, st.blob...)
 		if bytes.Compare(accx, accy) != 0 {
-			t.Errorf("incorrect encode in small test %v", i)
+			t.Errorf("incorrect encode in test %v", i)
 		}
 	}
 }
@@ -124,7 +127,7 @@ func TestDecode(t *testing.T) {
 			t.Error(err)
 		}
 		if bytes.Compare(data, st.data) != 0 {
-			t.Errorf("incorrect decode in small test %v", i)
+			t.Errorf("incorrect decode in test %v", i)
 		}
 		if len(rem) != 0 {
 			t.Errorf("failed to consume everything in test %v", i)
@@ -144,7 +147,7 @@ func TestDecode(t *testing.T) {
 			t.Error(err)
 		}
 		if bytes.Compare(data, st.data) != 0 {
-			t.Errorf("incorrect decode in small test %v", i)
+			t.Errorf("incorrect decode in test %v", i)
 		}
 		buf = rem
 	}
@@ -157,6 +160,7 @@ func TestEncoder(t *testing.T) {
 	var buf bytes.Buffer
 	var ref []byte
 	enc := NewEncoder(&buf)
+	enc.SetChunkLen(MaxChunkLen)
 
 	// Encode all our test cases consecutively with one Encoder
 	for i, st := range testCases {
