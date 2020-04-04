@@ -1,17 +1,16 @@
 package cbe
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"io"
-	"bytes"
-	"strings"
-	"bufio"
 	"math/big"
-	"encoding/binary"
+	"strings"
 )
 
 var minusOne = big.NewInt(-1)
-
 
 // Decoder decodes a series of blobs from an input stream.
 type Decoder struct {
@@ -40,10 +39,10 @@ func (d *Decoder) header() (n int, part bool, err error) {
 		return 0, false, err
 	}
 	if h[0] < 0x80 {
-		d.r.UnreadByte()	// the header is also the 1-byte content
+		d.r.UnreadByte() // the header is also the 1-byte content
 		return 1, false, nil
 	}
-	if h[0] != 0x81 {
+	if h[0] < 0xc0 && h[0] != 0x81 { // up to 64 bytes of content
 		return int(h[0] - 0x80), false, nil
 	}
 
@@ -52,9 +51,12 @@ func (d *Decoder) header() (n int, part bool, err error) {
 	if err != nil {
 		return 0, false, err
 	}
-	if h[1] >= 0x80 {
-		d.r.UnreadByte()	// 1-byte actual content
+	if h[0] == 0x81 && h[1] >= 0x80 {
+		d.r.UnreadByte() // 1-byte actual content
 		return 1, false, nil
+	}
+	if h[0] >= 0xc0 { // up to 16447 bytes of content
+		return 64 + int(h[0]&0x3f)<<8 + int(h[1]), false, nil
 	}
 
 	// third header byte
@@ -62,20 +64,17 @@ func (d *Decoder) header() (n int, part bool, err error) {
 	if err != nil {
 		return 0, false, err
 	}
-	if h[1] < 0x40 {		// 3-byte header for medium-size blob
-		return 128 + int(h[1]) << 8 + int(h[2]), false, nil
-	}
 
 	// fourth header byte
 	h[3], err = d.r.ReadByte()
 	if err != nil {
 		return 0, false, err
 	}
-	if h[1] < 0x60 {		// 4-byte header of final large chunk
-		return 16384 + int(h[1]&0x1f)<<16 + int(h[2])<<8 + int(h[3]),
+	if h[1] < 0x40 { // 4-byte header of final large chunk
+		return 16448 + int(h[1]&0x3f)<<16 + int(h[2])<<8 + int(h[3]),
 			false, nil
-	} else {			// 4-byte header of partial blob
-		return 16384 + int(h[1]&0x1f)<<16 + int(h[2])<<8 + int(h[3]),
+	} else { // 4-byte header of partial blob
+		return 16448 + int(h[1]&0x3f)<<16 + int(h[2])<<8 + int(h[3]),
 			true, nil
 	}
 }
@@ -155,7 +154,7 @@ func (d *Decoder) Int64() (int64, error) {
 	if (v & 1) == 0 {
 		return int64(v >> 1), nil
 	} else {
-		return -1 - int64(v >> 1), nil
+		return -1 - int64(v>>1), nil
 	}
 }
 
@@ -188,4 +187,3 @@ func (d *Decoder) SignedInt(v *big.Int) error {
 
 	return nil
 }
-

@@ -1,28 +1,25 @@
 package cbe
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"io"
-	"bytes"
-	"strings"
-	"encoding/binary"
 	"math/big"
+	"strings"
 )
 
-
 // Minimum streamable chunk size allowed by the encoding.
-const MinChunkLen int = 0x4000		// 16384 bytes
+const MinChunkLen int = 0x4040 // 16448 bytes
 
 // Maximum streamable chunk size allowed by the encoding.
-const MaxChunkLen int = 0x203fff	// 2,113,535 bytes
+const MaxChunkLen int = 0x40403f // 4,210,751 bytes
 
-const defaultChunkLen = MinChunkLen
-
-
+const defaultChunkLen = MinChunkLen // minimize buffering, latency
 
 // An Encoder encodes a series of blobs to an output stream.
 type Encoder struct {
-	w io.Writer
+	w   io.Writer
 	buf []byte
 }
 
@@ -34,7 +31,7 @@ func NewEncoder(w io.Writer) *Encoder {
 // Encode a blob by reading bytes from r until encountering EOF.
 // Supports streaming:
 // r can represent arbitrarily many bytes (even infinite).
-// This function will 
+// This function will
 func (e *Encoder) ReadFrom(r io.Reader) (n int64, err error) {
 
 	// Get our chunk buffer, creating it if needed
@@ -47,7 +44,6 @@ func (e *Encoder) ReadFrom(r io.Reader) (n int64, err error) {
 		// Read a full chunk into the chunk buffer or until EOF
 		l, err := io.ReadFull(r, buf[4:])
 		if err != nil && err != EOF && err != io.ErrUnexpectedEOF {
-			println("ReadFull l", l, "err", err)
 			return 0, err
 		}
 
@@ -55,9 +51,9 @@ func (e *Encoder) ReadFrom(r io.Reader) (n int64, err error) {
 		more = false
 		h := 0
 		if l == chunkLen && err == nil { // chunk-size partial blob
-			n := l - 16384
+			n := l - 16448
 			buf[0] = 0x81
-			buf[1] = 0x60 + byte(n >> 16)
+			buf[1] = 0x40 + byte(n>>16)
 			buf[2] = byte(n >> 8)
 			buf[3] = byte(n)
 			more = true
@@ -65,27 +61,26 @@ func (e *Encoder) ReadFrom(r io.Reader) (n int64, err error) {
 		} else if l == 1 && buf[4] < 128 { // 1-byte no-header blob
 			h = 4
 
-		} else if l < 128 { // short blob with 1-byte header
+		} else if l < 64 { // small blob with 1-byte header
 			buf[3] = byte(0x80 + l)
 			h = 3
 
-		} else if l < 16384+128 { // medium blob with 3-byte header
-			n := l - 128
-			buf[1] = byte(0x81)
-			buf[2] = byte(n >> 8)
+		} else if l < 16448 { // small blob with 2-byte header
+			n := l - 64
+			buf[2] = 0xc0 + byte(n>>8)
 			buf[3] = byte(n)
-			h = 1
+			h = 2
 
-		} else {		// large blob with 4-byte header
-			n := l - 16384
+		} else { // large blob with 4-byte header
+			n := l - 16448
 			buf[0] = 0x81
-			buf[1] = 0x40 + byte(n >> 16)
+			buf[1] = 0x00 + byte(n>>16)
 			buf[2] = byte(n >> 8)
 			buf[3] = byte(n)
 		}
 
 		// Write the blob header and data from the buffer
-		lw, err := e.w.Write(buf[h:4+l])
+		lw, err := e.w.Write(buf[h : 4+l])
 		if err != nil {
 			return 0, err
 		} else if lw != 4-h+l {
@@ -114,7 +109,7 @@ func (e *Encoder) Uint64(v uint64) error {
 	var b8 [8]byte
 	b := b8[:]
 	binary.BigEndian.PutUint64(b, v)
-	for len(b) > 0 && b[0] == 0 {	// trim leading 0 bytes
+	for len(b) > 0 && b[0] == 0 { // trim leading 0 bytes
 		b = b[1:]
 	}
 	return e.Bytes(b)
@@ -126,7 +121,7 @@ func (e *Encoder) Int64(v int64) error {
 	if v >= 0 {
 		u = uint64(v) << 1
 	} else {
-		u = uint64(^v) << 1 + 1
+		u = uint64(^v)<<1 + 1
 	}
 	return e.Uint64(u)
 }
@@ -150,11 +145,10 @@ func (e *Encoder) SignedInt(v *big.Int) error {
 	return e.Bytes(u.Bytes())
 }
 
-
 // Get the current chunk buffer, creating one if necessary.
 func (e *Encoder) getBuf() []byte {
 	if e.buf == nil {
-		e.buf = make([]byte, 4 + defaultChunkLen)
+		e.buf = make([]byte, 4+defaultChunkLen)
 	}
 	return e.buf
 }
@@ -177,10 +171,9 @@ func (e *Encoder) SetChunkLen(chunkLen int) {
 		panic("chunk size too large")
 	}
 
-	bufLen := 4 + chunkLen	// for header plus chunk
+	bufLen := 4 + chunkLen // for header plus chunk
 	if cap(e.buf) < bufLen {
 		e.buf = make([]byte, bufLen)
 	}
 	e.buf = e.buf[:bufLen]
 }
-
