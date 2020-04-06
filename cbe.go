@@ -16,7 +16,6 @@ package cbe
 
 import (
 	"bytes"
-	"errors"
 	"io"
 )
 
