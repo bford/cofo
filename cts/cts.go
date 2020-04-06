@@ -1,12 +1,16 @@
 // Composable Text Syntax (CTS).
-// 
-// See XXX for more information.
+//
+// Early unstable prototype code.
+// For background information,
+// see the draft blog post at https://bford.info/draft/cts/
+// (warning: this is a temporary link that will change).
+//
 package cts
 
 import (
-	"io"
 	"bufio"
 	"errors"
+	"io"
 	"strings"
 )
 
@@ -18,11 +22,11 @@ import (
 // These pairs should generally be limited to pairs of
 // Open Punctuation (Ps) and Close Punctuation (Pe) characters
 // as defined by Unicode's character properties. For reference see:
-// 
+//
 //	https://www.compart.com/en/unicode/category/Ps
 //	https://www.compart.com/en/unicode/category/Pe
 //
-// Although it is possible, it is not recommended to 
+// Although it is possible, it is not recommended to
 // use the ASCII '<' and '>' characters as sensitive brackets,
 // because these are formally defined as and most commonly used as
 // mathematical less-than and greater-than signs, respectively.
@@ -45,22 +49,21 @@ const AsciiBrackets Brackets = "()[]{}"
 // 	"\u0F3C\u0F3D" +	// Tibetan Mark Ang Khang Gyon, Gyas
 // 	"\u169B\u169C" +	// Ogham Feather Mark, Reversed Feather Mark
 // 	"" ...
-// 
+//
 // (if someone has time to complete this...
 
-
 type bracket struct {
-	other rune		// other matching bracket
-	close bool		// false if open bracket, true if close bracket
+	other rune // other matching bracket
+	close bool // false if open bracket, true if close bracket
 }
 
-type pairs map[rune]bracket	// Map from runes to matching partner info
+type pairs map[rune]bracket // Map from runes to matching partner info
 
 // Convert a bracket config string into easier-to-use correspondence maps.
 func newPairs(b Brackets) pairs {
 
 	if b == "" {
-		b = SquareBrackets	// default bracket configuration
+		b = SquareBrackets // default bracket configuration
 	}
 
 	// make sure it contains an even-length number of runes
@@ -80,18 +83,17 @@ func newPairs(b Brackets) pairs {
 	return p
 }
 
-
 // Configuration options for the BTS encoder/decoder.
 type Config struct {
-	Tolerant	bool	// true to tolerate recoverable syntax errors
+	Tolerant bool // true to tolerate recoverable syntax errors
 
-	Brackets	Brackets // which character pairs are sensitive
+	Brackets Brackets // which character pairs are sensitive
 
 	// Function to handle decoding errors as they occur.
 	// If this function returns non-nil, decoding stops with that error.
 	// But this function can return nil to (try to) continue decoding.
 	// If this function is nil, the default is to stop at the first error.
-	HandleError	func(error) error
+	HandleError func(error) error
 }
 
 // A Decoder reads structured CTS values from an input stream.
@@ -112,8 +114,8 @@ func (c *Config) NewDecoder(r io.Reader) *Decoder {
 	}
 
 	return &Decoder{r: bufio.NewReader(r),
-			p: newPairs(c.Brackets),
-			h: h}
+		p: newPairs(c.Brackets),
+		h: h}
 }
 
 func (dec *Decoder) toBracket(close rune) (rune, rune, error) {
@@ -125,7 +127,7 @@ func (dec *Decoder) toBracket(close rune) (rune, rune, error) {
 		if close != 0 && rune == close { // found closer we wanted
 			return 0, 0, nil
 		}
-		if br, ok := dec.p[rune]; ok {	// found a bracket?
+		if br, ok := dec.p[rune]; ok { // found a bracket?
 			if close == 0 && !br.close { // found open bracket
 				return rune, br.other, nil
 
@@ -190,4 +192,3 @@ func (dec *Decoder) Decode() (string, rune, string, rune, error) {
 func (dec *Decoder) Buffered() io.Reader {
 	return dec.r
 }
-

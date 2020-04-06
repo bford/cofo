@@ -1,17 +1,17 @@
 package cts
 
 import (
-	"io"
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 )
 
 type decodeTest struct {
-	in string
-	good bool
+	in              string
+	good            bool
 	head, tail, rem string
-	open, close rune
+	open, close     rune
 }
 
 var decodeTests = []decodeTest{
@@ -24,7 +24,7 @@ var decodeTests = []decodeTest{
 	{"", false, "", "", "", 0, 0},
 	{"]", false, "", "", "", 0, 0},
 	{"foo]", false, "", "", "", 0, 0},
-} 
+}
 
 // XXX test multi-bracket configs
 
@@ -52,8 +52,8 @@ func TestDecode(t *testing.T) {
 		buf.Reset()
 
 		if head != dt.head || open != dt.open ||
-				tail != dt.tail || close != dt.close ||
-				rem != dt.rem {
+			tail != dt.tail || close != dt.close ||
+			rem != dt.rem {
 			t.Errorf("Decoode produced wrong output %v,%v,%v,%v,%v",
 				head, string(open), tail, string(close), rem)
 		}
@@ -61,4 +61,3 @@ func TestDecode(t *testing.T) {
 		// XXX check remainder
 	}
 }
-
