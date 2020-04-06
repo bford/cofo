@@ -1,5 +1,18 @@
 # Composable Binary Encoding (CBE)
 
+This package contains an early prototype Go language implementation of
+[composable binary encoding (CBE)](https://bford.info/draft/cbe/)
+(warning: this temporary link will change).
+Please see the
+[godoc documentation] for API information.
+Porting CBE to other language should be straightforward.
+
+
+## What is CBE?
+
+See the draft blog post referenced above for full information,
+but a more concise summary of CBE is below.
+
 We often want to embed a veriable-length binary string
 into a longer string or stream,
 so that a decoder can find the end of the embedded string unambiguously.
@@ -30,10 +43,6 @@ CBE embeds it in a larger byte sequence such that:
 	progressively in variable-size chunks between &sim;16KB and &sim;4MB.
 *	Relative space overhead diminishes rapidly for large strings,
 	to a limit of &sim;0.0001% when streaming with the maximum chunk size.
-
-A [prototype implementation in Go](https://github.com/bford/cbe-go)
-is already available,
-and porting CBE to other language should be straightforward.
 
 
 ## Encoding binary blobs into more chunks
@@ -410,11 +419,4 @@ to bind together all the pairs comprising a particular map structure
 and embed it in other structures,
 including other maps.
 
-
-# Feedback and suggestions
-
-This specification is a preliminary draft and not yet stable:
-I make no promises (yet) not to make incompatible changes at any time.
-For comments and suggestions on improving this spec,
-please feel free to submit pull requests on this repository.
 

@@ -1,5 +1,7 @@
-This repository implements Composable Binary Encoding (CBE)
-in the Go language.
-For more information,
-please see the
-[godoc documentation](https://godoc.org/github.com/bford/cbe-go).
+This repository contains an experimental kit
+of Composable Formats (CoFo) and related tools.
+
+Contents:
+
+*	[cbe](cbe): Composable Binary Embedding
+
