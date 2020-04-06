@@ -4,7 +4,8 @@ This package contains an early prototype Go language implementation of
 [composable binary encoding (CBE)](https://bford.info/draft/cbe/)
 (warning: this temporary link will change).
 Please see the
-[godoc documentation] for API information.
+[godoc documentation](https://godoc.org/github.com/bford/cofo/cbe)
+for details on this package's API.
 Porting CBE to other language should be straightforward.
 
 
@@ -45,7 +46,7 @@ CBE embeds it in a larger byte sequence such that:
 	to a limit of &sim;0.0001% when streaming with the maximum chunk size.
 
 
-## Encoding binary blobs into more chunks
+## Encoding binary blobs into chunks
 
 CBE takes an arbitrary byte sequence or *blob* of any length &ndash;
 even an endless stream &ndash;
