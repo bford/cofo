@@ -1,4 +1,4 @@
-# Composable Text Syntax (CTS)
+# Composable Resource Identifiers (CRIs)
 
 This package contains an early prototype Go language implementation of
 [composable resource identifiers or CRIs](https://bford.info/draft/cri/)
